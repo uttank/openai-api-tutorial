@@ -3,10 +3,10 @@ from PIL import Image
 import base64
 
 # 이미지 프롬프트를 입력받으면 이미지를 생성하여 전달.
-def get_image_by_dalle(client, img_prompt):    
+def get_image_by_dalle(client, genre, img_prompt):    
     response = client.images.generate(
     model="dall-e-3",
-    prompt=img_prompt,
+    prompt='The name of this story is ' + genre + ' ' + img_prompt + ' The style is 3D computer-rendered children’s movie animation with vibrant colors and detailed textures.',
     size="1024x1024",
     quality="standard",
     n=1,

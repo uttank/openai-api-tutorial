@@ -1,10 +1,17 @@
 import os
-from langchain import OpenAI, ConversationChain, LLMChain, PromptTemplate
-from langchain.memory import ConversationBufferWindowMemory
-from langchain.chat_models import ChatOpenAI
+from langchain_core.prompts import PromptTemplate
+from langchain_openai import ChatOpenAI
+from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_community.chat_message_histories import ChatMessageHistory
 
-# GPT-4 프롬프트
-def get_llm():
+store = {}
+
+# ch09_gpt.py 파일
+def get_llm(session_id: str):
+    global store  # store를 전역 변수로 사용함을 명시
+
+    model = ChatOpenAI(temperature=0.99, max_tokens=2048, model_name="gpt-4-1106-preview")
+
     template = """
 ### Context ###
 You are NovelGPT. Your role is to guide the reader through an interactive storybook experience,
@@ -32,21 +39,20 @@ Human: {input}
 AI:
     """
 
-    prompt = PromptTemplate(
-        template=template, input_variables=['history', 'input']
+    prompt = PromptTemplate(template=template, input_variables=['history', 'input'])
+    runnable = prompt | model
+
+    # 세션 기록 가져오기
+    if session_id not in store:
+        store[session_id] = ChatMessageHistory()
+
+    session_history = store[session_id]
+
+    with_message_history = RunnableWithMessageHistory(
+        runnable,
+        lambda session_id: session_history,
+        input_messages_key="input",
+        history_messages_key="history"
     )
 
-    # 1. {history} 변수와 ConversationBufferWindowMemory()에 대해서 설명합니다.
-    # ConversationBufferWindowMemory()는 history 변수를 프롬프트에 사용했을 때
-    # 과거에 어떤 스토리를 진행했는지가 history에 담겨서 프롬프트와 함께 전달되도록 합니다.
-    # 따라서 GPT-4는 과거의 스토리를 참고하여 새로운 스토리와 선택지를 작성하게 될 것입니다.
-    # 참고: https://www.pinecone.io/learn/series/langchain/langchain-conversational-memory/
-
-    # 2. {input}은 4개의 선택지 중 사용자가 선택한 선택지가 전달됩니다.
-    chatgpt_chain = ConversationChain(
-        llm=ChatOpenAI(temperature=0.99, max_tokens=2048, model_name="gpt-4-1106-preview"), 
-        prompt=prompt, 
-        memory=ConversationBufferWindowMemory(),
-    )
-    
-    return chatgpt_chain
+    return with_message_history

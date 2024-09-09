@@ -67,7 +67,7 @@ def TTS(response):
 
 ##### 메인 함수 #####
 def main():
-    st.image('ai2.png', width=200)
+    st.image('ai.png', width=200)
     st.title("💬 이미지를 해설해드립니다.")
 
     # 이미지를 업로드
