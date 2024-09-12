@@ -1,7 +1,10 @@
 # 실전 12가지 프로젝트로 배우는 OpenAI API, 랭체인 완벽 활용법
 `실전 12가지 프로젝트로 배우는 OpenAI API, 랭체인 완벽 활용법` 교재의 깃허브입니다.  
 
-![chatgpt책](https://github.com/chatgpt-kr/chatgpt-api-tutorial/assets/79401093/1716e11f-5e6a-4fb0-bf37-7ec4781166ef)
+
+![cover](https://github.com/user-attachments/assets/ba05ccf0-5779-4cbc-b304-5bda9c89dfaa)
+
+
 
 ## 문의사항 (Inquiries)
 
