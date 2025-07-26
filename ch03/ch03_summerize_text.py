@@ -3,7 +3,12 @@
 import streamlit as st
 # OpenAI 패키기 추가
 import openai
-
+import os
+from dotenv import load_dotenv
+# This script loads environment variables from a .env file
+load_dotenv()
+# os.getenv() 함수를 이용해 API 키를 변수에 저장합니다.
+openai_api_key = os.getenv("OPENAI_API_KEY")
 ##### 기능 구현 함수 #####
 def askGpt(prompt,apikey):
     client = openai.OpenAI(api_key = apikey)
@@ -17,13 +22,16 @@ def askGpt(prompt,apikey):
 def main():
     st.set_page_config(page_title="요약 프로그램")
     # session state 초기화
+
     if "OPENAI_API" not in st.session_state:
         st.session_state["OPENAI_API"] = ""
 
     # 사이드바
+
     with st.sidebar:
         # Open AI API 키 입력받기
-        open_apikey = st.text_input(label='OPENAI API 키', placeholder='Enter Your API Key', value='',type='password')    
+        #open_apikey = st.text_input(label='OPENAI API 키', placeholder='Enter Your API Key', value='',type='password')    
+        open_apikey = openai_api_key
         # 입력받은 API 키 표시
         if open_apikey:
             st.session_state["OPENAI_API"] = open_apikey
