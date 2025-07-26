@@ -15,32 +15,41 @@ from audiorecorder import audiorecorder
 import os
 import numpy as np
 import base64
-
+import os
+from dotenv import load_dotenv
+# This script loads environment variables from a .env file
+load_dotenv()
+# os.getenv() 함수를 이용해 API 키를 변수에 저장합니다.
+openai_api_key = os.getenv("OPENAI_API_KEY")
 ##### 기능 구현 함수 #####
 def STT(audio, client):
     # Whisper 모델이 파일 형태로 입력을 받으므로 input.mp3 파일이란 이름으로 음성 파일을 저장합니다.
     filename='input.mp3'
-    wav_file = open(filename, "wb")
-    wav_file.write(audio.export().read())
-    wav_file.close()
+    
+    # 오디오 데이터를 안전하게 파일에 저장
+    try:
+        audio_data = audio.export(format="mp3")
+        with open(filename, "wb") as wav_file:
+            wav_file.write(audio_data.read())
+    except Exception as e:
+        return f"오디오 파일 저장 중 오류: {str(e)}"
 
     # 음성 파일 열기
-    audio_file = open(filename, "rb")
-    # Whisper 모델을 활용해 텍스트 얻기
     try:
-
-        # openai 의 whisper API 를 활용하여 텍스트를 추출합니다.
-        transcript = client.audio.transcriptions.create(
-        model="whisper-1",
-        file=audio_file,
-        response_format="text"
-        )
-
-        # Whisper로 TTS가 끝났으니 이제 mp3 파일을 다시 삭제합니다.
-        audio_file.close()
-        os.remove(filename)
-    except:
-        transcript = '여러분들의 Key 값'
+        with open(filename, "rb") as audio_file:
+            # Whisper 모델을 활용해 텍스트 얻기
+            transcript = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_file,
+                response_format="text"
+            )
+    except Exception as e:
+        transcript = f"음성 인식 오류: {str(e)}"
+    finally:
+        # 임시 파일 정리
+        if os.path.exists(filename):
+            os.remove(filename)
+    
     return transcript
 
 def TTS(response):    
@@ -90,17 +99,17 @@ st.set_page_config(
 if "chat" not in st.session_state:
     st.session_state["chat"] = []
 
-# st.session_state["check_audio"] : 프로그램이 재실행 될 때마다 이전 녹음파일 정보가 버퍼에
-# 남아있어 실행되는 것을 방지하기 위해 이전 녹음파일 정보를 저장합니다
-if "check_audio" not in st.session_state:
-    st.session_state["check_audio"] = []
+# st.session_state["check_audio_len"] : 프로그램이 재실행 될 때마다 이전 녹음파일 정보가 버퍼에
+# 남아있어 실행되는 것을 방지하기 위해 이전 녹음파일 길이를 저장합니다
+if "check_audio_len" not in st.session_state:
+    st.session_state["check_audio_len"] = 0
 
 # st.session_state["messages"] : GPT API에 입력으로 들어갈 프롬프트 양식. 이전 질문 및 답변을 누적하여 저장.
 if "messages" not in st.session_state:
     st.session_state["messages"] = [{"role": "system", "content": 'You are a thoughtful assistant. Respond to all input in 25 words and answer in korean'}]
 
 # 제목
-st.image('ai.png', width=200)
+# st.image('ai.png', width=200)  # 이미지 파일이 없어서 주석 처리
 st.header('나만의 인공지능 비서 🔊')
 # 구분선
 st.markdown('---')
@@ -109,7 +118,7 @@ st.subheader('모르는 질문을 하면 답변해줄거에요.🎤')
 
 # OpenAI API 키 지정하기    
 client = OpenAI(
-        api_key = "여러분들의 Key 값"
+        api_key = openai_api_key
 )
 # 음성 입력 확인 Flag
 flag_start = False
@@ -120,21 +129,32 @@ with col1:
     # 왼쪽 공간 작성
     # 음성 녹음 아이콘 추가
     audio = audiorecorder("질문", "녹음중...")
-    if len(audio) > 0 and not np.array_equal(audio, st.session_state["check_audio"]):
-        # 음성 재생
-        st.audio(audio.export().read())
+    if len(audio) > 0:
+        # 오디오가 이전과 다른지 확인 (길이로 비교)
+        if not hasattr(st.session_state, "check_audio_len") or len(audio) != st.session_state.get("check_audio_len", 0):
+            # 음성 재생 - 안전한 방식으로 오디오 데이터 처리
+            try:
+                # BytesIO 객체로 export
+                from io import BytesIO
+                audio_buffer = BytesIO()
+                audio.export(audio_buffer, format="mp3")
+                audio_bytes = audio_buffer.getvalue()
+                st.audio(audio_bytes)
+                
+                # 음원 파일에서 텍스트 추출
+                question = STT(audio, client)
 
-        # 음원 파일에서 텍스트 추출
-        question = STT(audio, client)
-
-        # 채팅 시각화를 위한 질문 내용 저장
-        now = datetime.now().strftime("%H:%M")
-        st.session_state["chat"] = st.session_state["chat"]+ [("user", now, question)]
-        # GPT 모델에 넣을 프롬프트를 위해 질문 저장. 이때 기존 내용 누적.
-        st.session_state["messages"] = st.session_state["messages"]+ [{"role": "user", "content": question}]
-        # audio 버퍼 확인을 위해 현 시점 오디오 정보 저장
-        st.session_state["check_audio"] = audio
-        flag_start=True
+                # 채팅 시각화를 위한 질문 내용 저장
+                now = datetime.now().strftime("%H:%M")
+                st.session_state["chat"] = st.session_state["chat"]+ [("user", now, question)]
+                # GPT 모델에 넣을 프롬프트를 위해 질문 저장. 이때 기존 내용 누적.
+                st.session_state["messages"] = st.session_state["messages"]+ [{"role": "user", "content": question}]
+                # audio 길이 확인을 위해 현 시점 오디오 길이 저장
+                st.session_state["check_audio_len"] = len(audio)
+                flag_start=True
+            except Exception as e:
+                st.error(f"오디오 처리 오류: {str(e)}")
+                flag_start=False
 
 with col2:
     # 오른쪽 공간 작성
